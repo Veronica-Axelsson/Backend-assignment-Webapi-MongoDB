@@ -1,13 +1,13 @@
 const express = require('express')
+const productSchema = require('../schemas/productSchema')
 const controller = express.Router()
 
-const ProductSchema = require('../schemas/productSchema')
-
-//  Nytt ---------------------------------------------------------------------------------------------------
 // Unsecured routes
+
+// http://localhost:5000/api/products/. Hämtar alla produkter.
 controller.route('/').get(async(req, res) => {
     const products = []
-    const list = await ProductSchema.find()
+    const list = await productSchema.find()
     
     if(list) {
         for (let product of list) {
@@ -30,7 +30,7 @@ controller.route('/').get(async(req, res) => {
 // http://localhost:5000/api/products/featured. Produkter visas efter vilken tag man valt.
 controller.route('/:tag').get(async(req, res) => {
     const products = []
-    const list = await ProductSchema.find({ tag: req.params.tag})
+    const list = await productSchema.find({ tag: req.params.tag})
     
     if(list) {
         for (let product of list) {
@@ -54,7 +54,7 @@ controller.route('/:tag').get(async(req, res) => {
 // http://localhost:5000/api/products/featured/2. Man kan ta ut visst antal produkter från en viss tag grupp.
 controller.route('/:tag/:take').get(async(req, res) => {
     const products = []
-    const list = await ProductSchema.find({ tag: req.params.tag}).limit(req.params.take)
+    const list = await productSchema.find({ tag: req.params.tag}).limit(req.params.take)
     
     if(list) {
         for (let product of list) {
@@ -76,7 +76,7 @@ controller.route('/:tag/:take').get(async(req, res) => {
 
 // http://localhost:5000/api/products/product/details/6391b634dc47888719d4e0a6. Visar produkt med hjälp av artikelnummer.
 controller.route('/product/details/:articleNumber').get(async(req, res) => {
-    const product = await ProductSchema.findById(req.params.articleNumber)
+    const product = await productSchema.findById(req.params.articleNumber)
     
     if(product) {
         res.status(200).json({
@@ -94,53 +94,74 @@ controller.route('/product/details/:articleNumber').get(async(req, res) => {
 })
 
 
-
 // Secured routes
 
+// Hämta och skapa produkter.
+controller.route('/').post(async(req, res) => {
+   const {tag, name, description, category, price, rating, imageName} = req.body
+
+    if (!name || !price)
+        res.status(400).json({text: 'Name and price is required.'})
 
 
+    const item_exists = await productSchema.findOne({name})
+    if (item_exists)
+        res.status(409).json({text: 'A product with the same name already exists.'})
 
+    else {
+        const product = await productSchema.create({
+            tag, 
+            name, 
+            description, 
+            category, 
+            price, 
+            rating, 
+            imageName
+        })
+        if(product)
+            res.status(201).json({test: `Product was created with article number ${product._id} successfully.`})
+        else
+            res.status(400).json({text: 'Something went wrong when we tried to create a product.'})
+    }
+})
 
+// Uppdatera en produkt med hjälp av artikelnummer.
+controller.route('/:articleNumber').put(async(req, res) => {
 
+    if(!req.params.articleNumber) {
+        res.status(400).json({text: 'No article number was specified.'})
+    } else {
+        const product = await productSchema.findById(req.params.articleNumber)
+
+        if(product) {
+            await productSchema.findByIdAndUpdate(req.params.articleNumber, req.body, { new: true})
+       
+            if(product)
+                res.status(201).json({test: `Product was updated with article number ${product._id} successfully.`})
+            else
+                res.status(400).json({text: 'Something went wrong when we tried to update a product.'})
+        } 
+        
+        else {
+            res.status(400).json({text: 'Product with article number ${req.params.articleNumber} was not found.'})
+        }
+    }
+
+})
+
+// Ta bort en produkt med hjälp av artikelnummer.
+controller.route('/:articleNumber').delete(async(req, res) => {
+    if(!req.params.articleNumber) {
+        res.status(400).json({text: 'No article number was specified.'})
+    } else {
+        const item = await productSchema.findById(req.params.articleNumber)
+        if(item) {
+            await productSchema.remove(item)
+            res.status(200).json({test: `Product with article number ${req.params.articleNumber} was deleted successfully.`})
+        } else {
+            res.status(400).json({text: 'Product with article number ${req.params.articleNumber} was not found.'})
+        }
+    }
+ })
 
 module.exports = controller
-
-// Nytt slut----------------------------------------------------------------------------------------------------------
-
-// controller.param("articleNumber", (req, res, next, articleNumber) => {
-//     req.product = products.find(x => x.articleNumber == articleNumber)
-//     next()
-// })
-
-// controller.param("tag", (req, res, next, tag) => {
-//     req.products = products.filter(x => x.tag == tag)
-//     next()
-// })
-
-// controller.route('/details/:articleNumber').get((req, res) => {
-//     if(req.product != undefined)
-//         res.status(200).json(req.products)
-//     else
-//         res.status(404).json()
-// })
-
-// controller.route('/:tag').get((req, res) => {
-//     if(req.product != undefined)
-//         res.status(200).json(req.products)
-//     else
-//         res.status(404).json()
-// })
-
-// controller.route('/:tag/:take').get((req, res) => {
-    // let list = []
-
-    // for (let i = 0;  i < Number(req.params.take); i++)
-    //     list.push(req.products[i])
-
-    //     res.status(200).json(list)
-// })
-
-
-// controller.route('/').get((req, res) => {
-//     res.status(200).json(products)
-// })
